@@ -1,4 +1,4 @@
-(defproject cascadog "0.1.0"
+(defproject org.clojars.pchalasani/cascadog "0.1.0"
   :description "Cascalog tamed to be uncomplaining, like your dog"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
