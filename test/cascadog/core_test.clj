@@ -16,11 +16,6 @@
   )
 
 
-
-
-
-
-
 ;; Redefine test fns to use cascadog
 
 (defmacro test?<- [& args]
