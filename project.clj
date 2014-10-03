@@ -1,6 +1,6 @@
 (defproject org.clojars.pchalasani/cascadog "0.1.0"
   :description "Cascalog tamed to be uncomplaining, like your dog"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/pchalasani/cascadog"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :jvm-opts ["-Xmx768m"
