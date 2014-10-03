@@ -5,13 +5,9 @@
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
             [jackknife.seq :as js]
-            [cascalog.cascading [types :as types]]
             [cascalog.logic
              [ops :as c]
              [vars :as v]
-             [testing :as t]
-             [parse :as parse]
-             [platform :as plat]
              [predicate :as p]]))
 
 
