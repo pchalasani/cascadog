@@ -66,27 +66,8 @@
     `(fn ~args ~(cons f args))))
 
 
-(defn rpn-helper-old
-  "convert expression to RPN notation"
-  ([] nil)
-  ([expr]
-     (if (or (and (not (list? expr))
-                  (not (seq? expr)))
-             (and (list? expr)
-                  (= (first expr) 'var)))
-       (list expr)
-       (if (#{'-> '->>} (first expr))
-         (rpn-helper-old (macroexpand expr))
-         (let
-             [[fn & args] expr]
-           (vec
-            (concat
-             (mapcat rpn-helper-old args)
-             [{:f (lambda fn (count args)) :a (count args) }])))))))
-
-
 (defn rpn-helper
-  "convert expression to RPN notation"
+  "convert expression to RPN (i.e. postfix) notation"
   ([] nil)
   ([expr]
      (if (or (and (not (list? expr))
