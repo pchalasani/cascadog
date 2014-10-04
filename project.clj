@@ -1,8 +1,11 @@
-(defproject org.clojars.pchalasani/cascadog "0.1.0"
-  :description "Cascalog tamed to be uncomplaining, like your dog"
+(defproject pchalasani/cascadog "0.1.0"
+  :description "Cascalog tamed so it complains less, like your dog"
   :url "https://github.com/pchalasani/cascadog"
+  :scm {:name "git"
+        :url "https://github.com/pchalasani/cascadog"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
+
   :jvm-opts ["-Xmx768m"
              "-server"
              "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"]
