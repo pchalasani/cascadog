@@ -4,11 +4,14 @@
         clojure.core)
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
+            [taoensso.nippy :as nippy]
             [jackknife.seq :as js]
             [cascalog.logic
+             [fn :as cfn] ;; cascalog version of fn
              [ops :as c]
              [vars :as v]
-             [predicate :as p]]))
+             [predicate :as p]])
+  (:gen-class))
 
 
 
@@ -65,6 +68,9 @@
       [args `[~@(repeatedly arity gensym)]]
     `(fn ~args ~(cons f args))))
 
+(defn to-byte-array [x] (vec (cfn/serialize x)))
+
+(defn from-byte-array [x] (cfn/deserialize (byte-array (count x) x)))
 
 (defn rpn-helper
   "convert expression to RPN (i.e. postfix) notation"
@@ -82,10 +88,14 @@
            (vec
             (concat
              (mapcat rpn-helper args)
-             [{:f (lambda fn (count args)) :a (count args) }])))))))
+             [{:f ;;(lambda fn (count args))
+               ;;(to-byte-array (eval (lambda fn (count args))) )
+               :a (count args) }])))))))
 
 
-
+(defn bytes? [x]
+  (= (Class/forName "[B")
+     (.getClass x)))
 
 (defn rpn-eval
   "evaluate expression in reverse polish notation"
@@ -94,9 +104,11 @@
       [sweep (fn [sofar x]
                (if (and (map? x)
                         (x :f))
-                 (let [k (- (count sofar) (x :a))]
+                 (let [;; f (-> x :f from-byte-array ) ;; (x :f);;
+                       k (- (count sofar) (x :a))]
                    (into (vec (take k sofar))
-                         [(apply (x :f) (nthrest sofar k))]))
+                         [(apply (x :f);; f ;; (eval f)
+                                 (nthrest sofar k))]))
                  (conj sofar x)))]
     (first (reduce sweep [] args))))
 
@@ -167,7 +179,15 @@
           (map clause-to-rpn predicates)
           (get-casca-read-nums predicates)))
 
+
+(defn -main [& args]
+  (?<< (hfs-textline "junk" :sinkmode :replace)
+       [?y]
+        ([[0] [1] [2]] :> ?x)
+        ;;  (rpn-eval ?x 1 {:f (fn [x y] (+ x y)) :a 2}   :> ?y)
+        (+ (* ?x 10) 1 :> ?y)))
 (comment
+
 
   (do (load-file "src/cascadog/core.clj")
       (in-ns 'cascadog.core))
