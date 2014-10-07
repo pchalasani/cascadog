@@ -88,7 +88,7 @@
            (vec
             (concat
              (mapcat rpn-helper args)
-             [{:f ;;(lambda fn (count args))
+             [{:f (lambda fn (count args))
                ;;(to-byte-array (eval (lambda fn (count args))) )
                :a (count args) }])))))))
 
