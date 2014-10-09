@@ -1,10 +1,8 @@
 (ns cascadog.core
   "Friendly variants of Cascalog macros"
-  (:use cascalog.api
-        clojure.core)
+  (:use cascalog.api)
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
-            [taoensso.nippy :as nippy]
             [jackknife.seq :as js]
             [cascalog.logic
              [fn :as cfn] ;; cascalog version of fn
@@ -107,7 +105,7 @@
                  (let [;; f (-> x :f from-byte-array ) ;; (x :f);;
                        k (- (count sofar) (x :a))]
                    (into (vec (take k sofar))
-                         [(apply (x :f);; f ;; (eval f)
+                         [(apply (x  :f);; f ;; (eval f)
                                  (nthrest sofar k))]))
                  (conj sofar x)))]
     (first (reduce sweep [] args))))
@@ -180,17 +178,25 @@
           (get-casca-read-nums predicates)))
 
 
-(defn -main [& args]
+;; (defn -main [& args]
+;;   (?<< (hfs-textline "junk" :sinkmode :replace)
+;;        [?y]
+;;         ([[0] [1] [2]] :> ?x)
+;;         ;;  (rpn-eval ?x 1 {:f (fn [x y] (+ x y)) :a 2}   :> ?y)
+;;         (+ (* ?x 10) 1 :> ?y)))
+
+(defmain TestDog []
   (?<< (hfs-textline "junk" :sinkmode :replace)
        [?y]
-        ([[0] [1] [2]] :> ?x)
-        ;;  (rpn-eval ?x 1 {:f (fn [x y] (+ x y)) :a 2}   :> ?y)
-        (+ (* ?x 10) 1 :> ?y)))
+       ([[0] [1] [2]] :> ?x)
+       ;;  (rpn-eval ?x 1 {:f (fn [x y] (+ x y)) :a 2}   :> ?y)
+       (+ (* ?x 10) 1 :> ?y)))
+
+
+
 (comment
 
-
-  (do (load-file "src/cascadog/core.clj")
-      (in-ns 'cascadog.core))
+  ;; various examples to play with in a repl
 
   (??<< [?a]
         ([[1] [2] [3] [4] [5]] :> ?a))
