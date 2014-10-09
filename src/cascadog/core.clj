@@ -8,8 +8,7 @@
              [fn :as cfn] ;; cascalog version of fn
              [ops :as c]
              [vars :as v]
-             [predicate :as p]])
-  (:gen-class))
+             [predicate :as p]]))
 
 
 
@@ -185,12 +184,12 @@
 ;;         ;;  (rpn-eval ?x 1 {:f (fn [x y] (+ x y)) :a 2}   :> ?y)
 ;;         (+ (* ?x 10) 1 :> ?y)))
 
-(defmain TestDog []
-  (?<< (hfs-textline "junk" :sinkmode :replace)
-       [?y]
-       ([[0] [1] [2]] :> ?x)
-       ;;  (rpn-eval ?x 1 {:f (fn [x y] (+ x y)) :a 2}   :> ?y)
-       (+ (* ?x 10) 1 :> ?y)))
+;; (defmain TestDog []
+;;   (?<< (hfs-textline "junk" :sinkmode :replace)
+;;        [?y]
+;;        ([[0] [1] [2]] :> ?x)
+;;        ;;  (rpn-eval ?x 1 {:f (fn [x y] (+ x y)) :a 2}   :> ?y)
+;;        (+ (* ?x 10) 1 :> ?y)))
 
 
 
