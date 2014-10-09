@@ -141,7 +141,7 @@ or they invoke other queries/aggregates that our new macros cannot
 handle correctly.  It's very easy to prevent a predicate from being
 handled by our macros: just use *square brackets* instead of
 parens for these, as in the example below. When such a predicate is
-encountered, the square brackets are replaced by parens and passed on to
+encountered, the square brackets are replaced by parens and passed through to
 the appropriate original Cascalog operator. Note that when using square
 brackets you cannot use any of the special features mentioned above.
 
@@ -151,6 +151,28 @@ brackets you cannot use any of the special features mentioned above.
       [c/count :> ?n] ;; changed to (c/count :> ?n)
       [c/sum ?u :> ?tot] ;; changed to (c/sum ?u :> ?to)
 )
+```
+
+### Generators are a special case
+
+The new `cascadog` macros cannot handle a generator
+that does not have an explicit `:>` operator, since it looks similar to
+a filtering predicate, and there's no easy way to distinguish
+these. Therefore when using the `cascadog` macros, you have 2 options:
+- use square brackets so that it's passed-through to the original
+cascalog macros (this is the *preferred* option), e.g.:
+```
+(let [src [[1][2][3]] ]
+   (??<< [?y]
+         [ src ?x ]
+         (+ ?x 1 :> ?y)))
+```
+- use an explicit `:>` operator, e.g.
+```
+(let [src [[1][2][3]] ]
+   (??<< [?y]
+         (src :> ?x)
+         (+ ?x 1 :> ?y)))
 ```
 
 
