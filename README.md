@@ -258,5 +258,5 @@ which produces this output
 (cascalog.api/??<-
  [?b]
  ([[1] [2] [3] [4] [5]] :> ?a)
- ((cascalog.logic.fn/fn [?a__] (+ (* 2 ?a__) 10)) ?a :> ?b))
+ ((cascalog.logic.def/mapfn [?a__] (+ (* 2 ?a__) 10)) ?a :> ?b))
 ```
