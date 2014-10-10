@@ -6,6 +6,7 @@
         cascalog.api
         cascadog.core)
   (:require [cascalog.logic
+             [fn :as cfn]
              [ops :as c]
              [def :as d]]
             )
@@ -13,6 +14,18 @@
            [cascalog.ops IdentityBuffer]
            [cascading.operation.text DateParser]))
 
+
+(deftest test-casca-anon-fn
+  "normal anon fn fails, but casca anon works"
+  (let
+      [junk 100
+       triple (cfn/fn [x] (* x 3))]
+    (test?<- [[131 134] [132 136] [133 138]]
+             [?y ?z]
+             ([[1] [2] [3]] :> ?x)
+             ((cfn/fn [x ] (and (or (> x 10) (< x 3)) (even? x))) ?x )
+             ((cfn/fn [x y] (+ ((fn [z] (+ 2 z)) x) y) ) ?x ?y :> ?z )
+             ((cfn/fn [x y] (+ junk x (triple y))) ?x 10 :> ?y))))
 
 (defmapfn mk-one
   "Returns 1 for any input."

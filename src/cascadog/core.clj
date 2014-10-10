@@ -3,14 +3,15 @@
   (:use cascalog.api)
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
+            [clojure.set :as set]
             [jackknife.seq :as js]
             [cascalog.logic
              [fn :as cfn] ;; cascalog version of fn
              [ops :as c]
+             [def :as d]
              [vars :as v]
+             [parse :as parse]
              [predicate :as p]]))
-
-
 
 (defn has-casca-var
   "does form contain a cascalog var?"
@@ -35,6 +36,13 @@
        (distinct)
        (filter casca-num?)))
 
+(defn find-casca-vars
+  "find all vars of the form ?a or !a"
+  [form]
+  (->> (js/flatten form)
+       (filter v/logic-sym?)
+       (distinct)))
+
 (defn casca-read-clause
   "symbol ?#a => (read-string ?a :> ?#a)"
   [x]
@@ -58,61 +66,51 @@
     (map casca-read-clause cvars)))
 
 
-(defn lambda
-  "create anonymous form of function f with arity"
-  [f arity]
-  (let
-      [args `[~@(repeatedly arity gensym)]]
-    `(fn ~args ~(cons f args))))
 
-(defn to-byte-array [x] (vec (cfn/serialize x)))
-
-(defn from-byte-array [x] (cfn/deserialize (byte-array (count x) x)))
-
-(defn rpn-helper
-  "convert expression to RPN (i.e. postfix) notation"
-  ([] nil)
-  ([expr]
-     (if (or (and (not (list? expr))
-                  (not (seq? expr)))
-             (and (coll? expr)
-                  (= (first expr) 'var)))
-       (list expr)
-       (if (#{'-> '->>} (first expr))
-         (rpn-helper (macroexpand expr))
-         (let
-             [[fn & args] expr]
-           (vec
-            (concat
-             (mapcat rpn-helper args)
-             [{:f (lambda fn (count args))
-               ;;(to-byte-array (eval (lambda fn (count args))) )
-               :a (count args) }])))))))
-
-
-(defn bytes? [x]
-  (= (Class/forName "[B")
-     (.getClass x)))
-
-(defn rpn-eval
-  "evaluate expression in reverse polish notation"
-  [& args]
-  (let
-      [sweep (fn [sofar x]
-               (if (and (map? x)
-                        (x :f))
-                 (let [;; f (-> x :f from-byte-array ) ;; (x :f);;
-                       k (- (count sofar) (x :a))]
-                   (into (vec (take k sofar))
-                         [(apply (x  :f);; f ;; (eval f)
-                                 (nthrest sofar k))]))
-                 (conj sofar x)))]
-    (first (reduce sweep [] args))))
-
-(defn to-rpn
-  "convert to RPN but no eval"
+(defn get-vars
+  "get a map {:form, :vars, :vars_} where:
+    :vars is the (sorted) set of variables in function-arg position in the form,
+    :vars__ are the corresponding vars suffixed with __
+    :form is new form with all vars suffixed by __"
   [form]
-  `(rpn-eval ~@(rpn-helper form)))
+  (if (or (not (coll? form))     ;; not a coll
+          (= (first form) 'var)) ;; not a var
+    (if (symbol? form)
+      {:form (symbol (str form "__"))
+       :vars #{form}
+       :vars__ #{(symbol (str form "__"))}}
+      {:form form :vars #{}})
+    ;; might be either a function-form or a data-structure: map or vector!
+    (if (vector? form)
+      (let
+          [form-vars (map get-vars form)]
+        {:form (vec (map :form form-vars))
+         :vars (into (sorted-set) (reduce set/union #{} (map :vars form-vars)))
+         :vars__ (into (sorted-set) (reduce set/union #{} (map :vars__ form-vars)))})
+      (if (map? form)
+        (let [f-v (get-vars (into [] form))]
+          {:form (into {} (f-v :form))
+           :vars (f-v :vars)
+           :vars__ (f-v :vars__)})
+        (let [[fn & args] form     ;; else handle it like a function form, cross fingers
+              form-vars (map get-vars args)]
+          {:form (cons fn (map :form form-vars))
+           :vars (into (sorted-set) (reduce set/union #{} (map :vars form-vars)))
+           :vars__ (into (sorted-set) (reduce set/union #{} (map :vars__ form-vars))) })))))
+
+
+(defn anonymize
+  "Anonymize a form non-recursively, pulling all vars out"
+  [form]
+  (let
+      [{:keys [vars vars__ form]} (get-vars form)
+       vars (into [] vars)  ;; the order of vars and vars__ MUST MATCH!
+       vars__ (into [] vars__)
+       ]
+    (if (= 0 (count vars))
+      form
+      `((cfn/fn ~vars__ ~form) ~@vars))))
+
 
 (defn predicate-parts
   "parts of a predicate:
@@ -122,8 +120,8 @@
   {:pre (take-while #(not (v/selector? %) ) pred)
    :rest (drop-while #(not (v/selector? %)) pred)})
 
-(defn not-rpn-able?
-  "detect form that should not be converted to rpn"
+(defn not-flatten-able?
+  "detect form that should not be flattened"
   [form]
   (or
    (not (coll? form)) ;; not clear how this can happen
@@ -139,12 +137,12 @@
             (try (str (type (eval (first form))))
                  (catch Exception e "")))))
 
-(defn clause-to-rpn
-  "transform cascalog clause to rpn"
+(defn flatten-predicate
+  "flatten predicate using anon fn"
   [form]
   (if (vector? form) ;; simply change [...] => (...)
     (concat '() form)
-    (if (not-rpn-able? form)
+    (if (not-flatten-able? form)
       form
       (if (some v/selector? form)
         ;; contains an operator like :>  so looks like
@@ -156,24 +154,24 @@
           (if (= 1 (count pre-op))
             (if-not (list? (first form))  ;; ([[1] [2]] :> ?a)
               form
-              `(~@(to-rpn (first form))  ~@(rest form))) ;; ((q 10) :> ?a)
-            `(~@(to-rpn pre-op)  ~@post-op))) ;; (* ?a 10 :> ?b)
-        (to-rpn form))))) ;; (#'and (< ?a 10) (> ?a 1))
+              `(~@(anonymize (first form))  ~@(rest form))) ;; ((q 10) :> ?a) or (f x)
+            `(~@(anonymize pre-op)  ~@post-op))) ;; (* ?a 10 :> ?b)
+        (anonymize form))))) ;; (#'and (< ?a 10) (> ?a 1))
 
 
 (defmacro ??<< [outvars & predicates]
   (concat `(??<- ~outvars)
-          (map clause-to-rpn predicates)
+          (map flatten-predicate predicates)
           (get-casca-read-nums predicates)))
 
 (defmacro ?<< [sink vars & predicates]
   (concat `(?<- ~sink ~vars)
-          (map clause-to-rpn predicates)
+          (map flatten-predicate predicates)
           (get-casca-read-nums predicates)))
 
 (defmacro << [outvars & predicates]
   (concat `(<- ~outvars)
-          (map clause-to-rpn predicates)
+          (map flatten-predicate predicates)
           (get-casca-read-nums predicates)))
 
 
