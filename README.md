@@ -2,11 +2,11 @@
 
 The `cascadog.core` namespace introduces new operators `??<<, ?<<,
 <<` corresponding to the original `cascalog.api` macros `??<-`, `?<-`
-and `<-`,  so that we can have clauses with the following features that
+and `<-`,  so that we can have predicates with the following features that
 would normally cause errors:
 
 - Cascalog variables can appear arbitrarily deep in nested parens,
-  either in filtering clauses or operator clauses (that map a set of
+  either in filtering predicates or operator predicates (that map a set of
   fields to define one or more new fields).
 - Use syntax `?#name` or `!#name` to implicitly use string variables as
   numerical (see below).
@@ -23,10 +23,10 @@ would normally cause errors:
 ((fn [x] (inc x)) ?a :> ?b)
 ```
   (Cascalog complains about this too!).
-- Java methods can appear directly in clauses, whereas with the original
+- Java methods can appear directly in predicates, whereas with the original
   cascalog operators, a function definition must be used to wrap
-  them. E.g. one can have a clause like `(.indexOf Name "M" :>  ?x)`
-- Static methods of Java classes can appear directly in clauses (again
+  them. E.g. one can have a predicate like `(.indexOf Name "M" :>  ?x)`
+- Static methods of Java classes can appear directly in predicates (again
   these cause errors in original Cascalog), e.g. `(Math/sqrt ?a :> ?r)`
 - The above features can be combined inside arbitrarily deeply nested parens,
   e.g.
@@ -34,12 +34,57 @@ would normally cause errors:
   (or (< (* (Math/sqrt ?b) 2.0) 4.0)
       (> ?#a 1) :> ?fun)
 ```
-- Use square brackets (see below) to prevent transformation of any clause,
+- Use square brackets (see below) to prevent transformation of any predicate,
   e.g. `[c/sum ?a :> ?b]` will simply be changed to `(c/sum :> ?b)` and
   passed on to the appropriate original Cascalog macro. In this case of
   course you can't avail of any of the above features.
 
+### How to use in your project.
 
+Say you have a project `dog`. With leiningen, you need to include the
+dependency
+```
+[pchalasani/cascadog "0.1.4"]
+```
+
+A typical `project.clj` might look like this:
+
+```
+(defproject dog "0.1.0"
+  :description "FIXME: write description"
+  :url "http://example.com/FIXME"
+  :license {:name "Eclipse Public License"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
+
+  :jvm-opts ["-Xmx2000m"
+             "-server"
+             "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"]
+  :aot [dog.core]
+  :source-paths ["src/"]
+  :repositories [["conjars" "http://conjars.org/repo/"]
+                 ["clojars" "http://clojars.org/repo"]]
+  :dependencies [[org.clojure/clojure "1.6.0"]
+                 [pchalasani/cascadog "0.1.4"]
+                 [cascalog/cascalog-core "2.1.1"]
+                 [org.apache.hadoop/hadoop-core "1.2.1"]]
+  :plugins  [[lein-git-deps "0.0.1-SNAPSHOT"]]
+  :profiles {
+             :provided
+             {:dependencies [[org.apache.hadoop/hadoop-core "1.2.1"]]}})
+```
+
+And your namespace declaration would look like:
+
+```
+(ns dog.core
+  (:use
+     cascadog.core
+     cascalog.api
+     [cljutils misc])
+  (:require
+     [cascalog.logic [fn :as s]]) ;; serializable functions
+  (:gen-class))
+```
 
 ### Cascalog variables inside parens
 
@@ -53,8 +98,8 @@ Often in cascalog we would like to say something like
  ( (/ (* ?a 10) ?b ) :> ?c))
 ```
 
-The last 2 clauses above will cause errors since cascalog variables can
-only appear at the *top level* of a clause. To get around we go through
+The last 2 predicates above will cause errors since cascalog variables can
+only appear at the *top level* of a predicate. To get around we go through
 the tedious process of defining a separate mapop or a filter-op. This is
 particularly irksome when trying to run ad-hoc queries on cluster data
 for example.
@@ -84,8 +129,8 @@ A few things to note:
 - the boolean functions `or,and` can be used *directly*, whereas the
   original cascalog operators require referring them via the vars `#'or`
   and `#'and` since they really are macros and not functions.
-- for a clause that defines a map, the expression must be at the start
-  of the clause, which is the standard way such a clause is almost
+- for a predicate that defines a map, the expression must be at the start
+  of the predicate, which is the standard way such a predicate is almost
   always written.
 - for those curious, the flattening is achieved by first converting to a
   form of *Reverse Polish Notation* (or postfix notation).
@@ -95,7 +140,7 @@ A few things to note:
 ### Compact notation to handle fields as numerical
 
 Another annoyance when using Cascalog is that all fields are read in as
-strings, so to handle numerical fields we need to always insert clauses
+strings, so to handle numerical fields we need to always insert predicates
 that convert the field to numerical, e.g.
 
 ```
@@ -126,7 +171,7 @@ query simplies to:
 
 Whenever a variable of the form `?#a` (in general starting with `?#` or
 `!#`) is encountered, the new `??<<` macro automatically generates the
-corresponding  `(read-string )` clause to generate the variable, in this
+corresponding  `(read-string )` predicate to generate the variable, in this
 case:
 ```
 (read-string ?a :> ?#a)
@@ -151,6 +196,35 @@ brackets you cannot use any of the special features mentioned above.
       [c/count :> ?n] ;; changed to (c/count :> ?n)
       [c/sum ?u :> ?tot] ;; changed to (c/sum ?u :> ?to)
 )
+```
+
+### Use cascalog's serializable functions wherever possible.
+
+Whenever you need to define a function to be used within a cascalog
+predicate, you are less likely to get errors if you use the `fn`
+provided by the `cascalog.logic.fn` namespace, instead of the one from
+`clojure.core`. Typically you would do this:
+
+```
+(ns dog.core
+  (:use
+    cascadog.core
+    cascalog.api
+  (:require
+   [cascalog.logic [fn :as s]]) ;; serializable functions
+  (:gen-class))
+
+
+  (let
+      [myvar "?x"
+       myfn (s/fn [a b] (+ a b))]
+      (?<< (hfs-textline "junk" :sinkmode :replace)
+           [?y]
+           ([[1] [2] [3]] :> myvar)
+           (+ (* (Math/pow myvar 2.0) 2)
+              (Math/sqrt myvar)
+              myvar 1 :> ?z)
+           (myfn ?z 100 :> ?y)))))
 ```
 
 ### Generators are a special case
@@ -178,9 +252,10 @@ cascalog macros (this is the *preferred* option), e.g.:
 
 ### Under the hood
 
-It's possible that the new macros sometimes lead to errors or strange
-results. In such cases it helps to see what these macros are doing, using
-`macroexpand-1`. For example,
+The main trick is to *flatten* a predicate using a serializable anonymous
+function (from the original cascalog library) so all variables (cascalog or otherwise) appear at the top level.
+We can see how this is done using `macroexpand-1` (this is also useful
+for debugging when the new macros produce strange results). For example,
 
 ```
 (use 'clojure.pprint)
@@ -196,23 +271,5 @@ which produces this output
 (cascalog.api/??<-
  [?b]
  ([[1] [2] [3] [4] [5]] :> ?a)
- (cascadog.core/rpn-eval
-  2
-  ?a
-  {:f
-   #<cascalog$eval6648$fn__6649 cascadog.core$eval6648$fn__6649@cc9d2d3>,
-   :a 2}
-  10
-  {:f
-   #<cascalog$eval6654$fn__6655 cascadog.core$eval6654$fn__6655@2efbce1e>,
-   :a 2}
-  :>
-  ?b))
+ ((cascalog.logic.fn/fn [?a__] (+ (* 2 ?a__) 10)) ?a :> ?b))
 ```
-
-This shows that the first clause was not modified, and the second clause
-was *flattened* (i.e. re-written so all cascalog variables are at the
-top level) into RPN (Reverse Polish Notation, or postfix) notation. The
-maps `{:f ..., :a ...}` contain anonymous functions and arities so that
-the RPN evaluator (`rpn-eval`) knows how many preceding arguments to
-consume when evaluating each function.
