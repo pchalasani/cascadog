@@ -146,7 +146,7 @@ The `cascadog.core` namespace helps with this as well. The above
 query simplies to:
 
 ```
-(use 'cascalog.core)
+(use 'cascadog.core)
 
 (??<<
  [?n-a ?c]
