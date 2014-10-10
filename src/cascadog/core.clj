@@ -101,7 +101,7 @@
 
 (defn anonymize
   "Anonymize a form non-recursively, pulling all vars out"
-  [form]
+  [form is-map?]
   (let
       [{:keys [vars vars__ form]} (get-vars form)
        vars (into [] vars)  ;; the order of vars and vars__ MUST MATCH!
@@ -109,7 +109,9 @@
        ]
     (if (= 0 (count vars))
       form
-      `((cfn/fn ~vars__ ~form) ~@vars))))
+      (if is-map?
+        `((d/mapfn ~vars__ ~form) ~@vars)
+        `((d/filterfn ~vars__ ~form) ~@vars)))))
 
 
 (defn predicate-parts
@@ -150,13 +152,14 @@
         (let
             [pre-op (take-while #(not (v/selector? %) ) form)
              post-op (drop-while #(not (v/selector? %)) form)
+             is-map? (> (count post-op) 0)
              ]
           (if (= 1 (count pre-op))
             (if-not (list? (first form))  ;; ([[1] [2]] :> ?a)
               form
-              `(~@(anonymize (first form))  ~@(rest form))) ;; ((q 10) :> ?a) or (f x)
-            `(~@(anonymize pre-op)  ~@post-op))) ;; (* ?a 10 :> ?b)
-        (anonymize form))))) ;; (#'and (< ?a 10) (> ?a 1))
+              `(~@(anonymize (first form) is-map?)  ~@(rest form))) ;; ((q 10) :> ?a) or (f x)
+            `(~@(anonymize pre-op is-map?)  ~@post-op))) ;; (* ?a 10 :> ?b)
+        (anonymize form false))))) ;; (#'and (< ?a 10) (> ?a 1))
 
 
 (defmacro ??<< [outvars & predicates]
