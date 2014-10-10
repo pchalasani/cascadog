@@ -67,7 +67,6 @@ A typical `project.clj` might look like this:
                  [pchalasani/cascadog "0.1.4"]
                  [cascalog/cascalog-core "2.1.1"]
                  [org.apache.hadoop/hadoop-core "1.2.1"]]
-  :plugins  [[lein-git-deps "0.0.1-SNAPSHOT"]]
   :profiles {
              :provided
              {:dependencies [[org.apache.hadoop/hadoop-core "1.2.1"]]}})
@@ -91,7 +90,7 @@ And your namespace declaration would look like:
 Often in cascalog we would like to say something like
 
 ```
-(??<<
+(??<-
  [?a ?c]
  ( [[1 10] [2 20]] :> ?a ?b)
  ( (and (> ?a 1) (< ?a 5)))
@@ -99,20 +98,12 @@ Often in cascalog we would like to say something like
 ```
 
 The last 2 predicates above will cause errors since cascalog variables can
-only appear at the *top level* of a predicate. To get around we go through
-the tedious process of defining a separate mapop or a filter-op. This is
+only appear at the *top level* of a predicate. To get around we would
+normally go through the tedious process of defining a separate mapop or a filter-op. This is
 particularly irksome when trying to run ad-hoc queries on cluster data
 for example.
 
-Using the `cascadog.core` namespace this can be avoided.
-```
-(ns myproj.core
-  (:use
-      cascalog.api
-      cascadog.core))
-```
-
-The new operator `??<<` allows nested cascalog variables as in:
+Using the `cascadog.core` namespace this can be avoided. The new operator `??<<` allows nested cascalog variables as in:
 
 ```
 (??<<
@@ -129,13 +120,9 @@ A few things to note:
 - the boolean functions `or,and` can be used *directly*, whereas the
   original cascalog operators require referring them via the vars `#'or`
   and `#'and` since they really are macros and not functions.
-- for a predicate that defines a map, the expression must be at the start
+- for a predicate that defines a map operation, the expression must be at the start
   of the predicate, which is the standard way such a predicate is almost
   always written.
-- for those curious, the flattening is achieved by first converting to a
-  form of *Reverse Polish Notation* (or postfix notation).
-- any function of any arity can be used on the cascalog variables.
-
 
 ### Compact notation to handle fields as numerical
 
