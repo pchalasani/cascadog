@@ -1,4 +1,4 @@
-(defproject pchalasani/cascadog "0.1.6"
+(defproject pchalasani/cascadog "0.1.7"
   :description "Cascalog tamed so it complains less, like your dog"
   :url "https://github.com/pchalasani/cascadog"
   :scm {:name "git"

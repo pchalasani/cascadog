@@ -44,7 +44,7 @@ would normally cause errors:
 Say you have a project `dog`. With leiningen, you need to include the
 dependency
 ```
-[pchalasani/cascadog "0.1.5"]
+[pchalasani/cascadog "0.1.7"]
 ```
 
 A typical `project.clj` might look like this:
