@@ -42,9 +42,9 @@ would normally cause errors:
 ### How to use in your project.
 
 Say you have a project `dog`. With leiningen, you need to include the
-dependency
+dependency [from clojars](https://clojars.org/pchalasani/cascadog), e.g:
 ```
-[pchalasani/cascadog "0.1.8"]
+[pchalasani/cascadog "0.1.10"]
 ```
 
 A typical `project.clj` might look like this:
