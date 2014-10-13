@@ -214,27 +214,22 @@ provided by the `cascalog.logic.fn` namespace, instead of the one from
            (myfn ?z 100 :> ?y)))))
 ```
 
-### Generators are a special case
+### Only map, mapcat and filter predicates are handled.
 
-The new `cascadog` macros cannot handle a generator
-that does not have an explicit `:>` operator, since it looks similar to
-a filtering predicate, and there's no easy way to distinguish
-these. Therefore when using the `cascadog` macros, you have 2 options:
-- use square brackets so that it's passed-through to the original
-cascalog macros (this is the *preferred* option), e.g.:
+Cascadog supports the above flexible features only for  map, mapcat and
+filter predicates. If it detects that the predicate is not one of these
+types, it will pass through the predicate unchanged to cascalog.
+Generators however are a special case: these are not easily recognized
+by cascadog, and it's best to use square brackets for these, so that
+they are passed through unchanged to cascalog, e.g.:
+
 ```
 (let [src [[1][2][3]] ]
    (??<< [?y]
          [ src ?x ]
          (+ ?x 1 :> ?y)))
 ```
-- use an explicit `:>` operator, e.g.
-```
-(let [src [[1][2][3]] ]
-   (??<< [?y]
-         (src :> ?x)
-         (+ ?x 1 :> ?y)))
-```
+
 
 
 ### Under the hood

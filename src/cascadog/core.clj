@@ -65,7 +65,11 @@
       [cvars (find-casca-nums forms)]
     (map casca-read-clause cvars)))
 
-
+(defn get-type
+  "get type of a function if possible"
+  [f]
+  (try (str (type (eval f)))
+       (catch Exception _ "")))
 
 (defn get-vars
   "get a map {:form, :vars, :vars_} where:
@@ -95,23 +99,30 @@
         (let [[fn & args] form     ;; else handle it like a function form, cross fingers
               form-vars (map get-vars args)]
           {:form (cons fn (map :form form-vars))
+           :is-filt (or (->> fn get-type (re-find #"cascalog.*filter") boolean)
+                     (some true? (map :is-filt form-vars)))
+           :is-map (or (->> fn get-type (re-find #"cascalog.*map$") boolean)
+                    (some true? (map :is-map form-vars)))
+           :is-mapcat (or (->> fn get-type (re-find #"cascalog.*mapcat$") boolean)
+                          (some true? (map :is-mapcat form-vars)))
            :vars (into (sorted-set) (reduce set/union #{} (map :vars form-vars)))
            :vars__ (into (sorted-set) (reduce set/union #{} (map :vars__ form-vars))) })))))
 
 
 (defn anonymize
   "Anonymize a form non-recursively, pulling all vars out"
-  [form is-map?]
+  [form]
   (let
-      [{:keys [vars vars__ form]} (get-vars form)
+      [{:keys [is-filt is-map is-mapcat vars vars__ form]} (get-vars form)
        vars (into [] vars)  ;; the order of vars and vars__ MUST MATCH!
        vars__ (into [] vars__)
        ]
     (if (= 0 (count vars))
       form
-      (if is-map?
-        `((d/mapfn ~vars__ ~form) ~@vars)
-        `((d/filterfn ~vars__ ~form) ~@vars)))))
+      (cond is-map `((d/mapfn ~vars__ ~form) ~@vars)
+            is-mapcat `((d/mapcatfn ~vars__ ~form) ~@vars)
+            is-filt `((d/filterfn ~vars__ ~form) ~@vars)
+            true `((cfn/fn ~vars__ ~form) ~@vars)))))
 
 
 (defn predicate-parts
@@ -135,9 +146,10 @@
         (catch Exception e nil))
    (try (get-out-fields (eval (first form)))
         (catch Exception e nil))
-   (re-find #"cascalog\."  ;; possible aggregator, has class "..cascalog.blah.."
-            (try (str (type (eval (first form))))
-                 (catch Exception e "")))))
+   (let  ;; unhandled cascalog fn types
+       [fn-type (get-type (first form))]
+     (and (re-find #"cascalog\." fn-type)
+          (not (some identity (map #(re-find % fn-type) [#"filter$" #"map$" #"mapcat$"])) )))))
 
 (defn flatten-predicate
   "flatten predicate using anon fn"
@@ -152,14 +164,13 @@
         (let
             [pre-op (take-while #(not (v/selector? %) ) form)
              post-op (drop-while #(not (v/selector? %)) form)
-             is-map? (> (count post-op) 0)
              ]
           (if (= 1 (count pre-op))
             (if-not (list? (first form))  ;; ([[1] [2]] :> ?a)
               form
-              `(~@(anonymize (first form) is-map?)  ~@(rest form))) ;; ((q 10) :> ?a) or (f x)
-            `(~@(anonymize pre-op is-map?)  ~@post-op))) ;; (* ?a 10 :> ?b)
-        (anonymize form false))))) ;; (#'and (< ?a 10) (> ?a 1))
+              `(~@(anonymize (first form))  ~@(rest form))) ;; ((q 10) :> ?a) or (f x)
+            `(~@(anonymize pre-op)  ~@post-op))) ;; (* ?a 10 :> ?b)
+        (anonymize form))))) ;; (#'and (< ?a 10) (> ?a 1))
 
 
 (defmacro ??<< [outvars & predicates]
